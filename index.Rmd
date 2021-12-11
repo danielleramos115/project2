@@ -93,6 +93,7 @@ ggpairs(pamclust, columns=1:4, aes(color=cluster))
 
 plot(pam1, which = 2)
 
+# Sillhouette plot is blank due to such a large number of observations, but the average width is accurate and displayed!
 
 ```
 
@@ -124,12 +125,6 @@ num_dat_df <- data.frame(PC1 = pca1$scores[,1], PC2 = pca1$scores[,2])
 gg = ggplot(num_dat_df, aes(x = PC1, y = PC2)) + geom_point(size = 1) 
 print(gg)
 
-
-
-library(factoextra)
-movies <- movies %>% mutate('Action(T/F)' = ifelse(Action == 1, "TRUE", "FALSE"))
-fviz_pca_biplot(pca1, col.ind = movies$`Action(T/F)`)
-# PC1 &
 ```
 
 The principal component analysis was run using the 'num_dat' data set containing the numerical variables length, budget, rating, and votes to further understand the correlations amongst each variable, while gaining in sight on the collective variability throughout the data by plotting a the PCA by PC1 and PC2. In order to determining how many PCs there should be, the 'eigval' was calculated, which yields the proportion of variance among the four components that were based on each of the variables in 'num_dat'.The eigvals for the first two components were greater than 1, favoring 2 PCs being used for the PCA. The first two components summed up to 71 percent for the cumulative proportion of variance, and the first 3 summed up to 88 percent, making the first two components best for the PCA plot. As shown in the plot, PC1 and PC2 collectively explain 71% of the variability across all the variables from 'num_dat', which are 'length', 'budget', 'rating', and 'votes'.
@@ -144,13 +139,18 @@ score <- predict(fit, type = "response")
 score %>% round(3)
 
 class_diag(score, truth = movies$Action, positive = 1)
-summary(fit$fitted.values)
+# summary(fit$fitted.values)
 
 
 probability <- predict(fit, type = "response")
-table(truth = movies$Action, prediction = as.numeric(probability>0.5))
+table(truth = movies$Action, prediction = as.numeric(probability>0.5)) %>% addmargins
+# specificity
+4313/4377
+# True Positive Rate 
+123/838
 
-
+library(pROC)
+ROCplot <- plot.roc(movies$Action ~ probability)
 ```
 
 ```{R}
@@ -178,30 +178,22 @@ for (i in 1:k) {
 
 summarize_all(diags,mean)
 ```
-    - Perform k-fold CV on this same model (fine to use caret). Run the `class_diag` function or equivalent to get out-of-sample performance averaged across your k folds and discuss how well is your model predicting new observations per CV AUC.
-    
-    - Discuss the results in a paragraph. How well is your model predicting new observations per CV AUC? Do you see signs of overfitting?
 
-
-
-
-
-
-
+In the linear regression shown above, the goal was to predict the binary variable, Action (0,1) which determines if the reviewed movie is action or not, from the length of the movie in minutes, the budget of the movie in USD, the rating IMDB users gave the movie, and the number of IMBD users that voted for the movie. These specific variables were used for the regression because they are numeric variables that all have potential to affect the binary outcome of a movie genre in a way that is informative and independent.  The linear regression model was trained to the movies dataset and the AUC value came out 0.7209. This means that 72.09 percent of the model is predicting that the movie is of the Action genre, which is not precise.The quality of this prediction is poor and can be seen by the ROC curve as the curve approaching a 45 degree angle indicates an incremental lack of accuracy of the prediction. A better prediction would yield a resulting curve that approaches the top left of the plane. The confusion matrix indicates a true negative rate indicating specificity of 0.9853781 with 4313 true negative predictions., and a true positive rate indicating sensitivity of 0.146778 with 123 true positive predictions, which further explains the low predictability of thus model.A cross validation was done in order to further analyze the prediction. The AUC was almost the exact same after the cross validation was performed, as it was only 0.000022 lower, meaning this is not indicative of overfitting of this model to the movies data.
 
 ### Non-Parametric Classifier
 
 ```{R}
 library(caret)
-fit<- knn3(Action~length+budget+rating+votes, data = randomized)
-probs <- predict(fit, newdata = randomized)[, 2]
-class_diag(probs, randomized$Action, positive = "1")
+fit<- knn3(Action~length+budget+rating+votes, data = movies)
+probability <- predict(fit, newdata = movies)[, 2]
+class_diag(probability, movies$Action, positive = "1")
 
-table(truth = randomized$Action, predictions = probs > 0.5)
-table(truth = randomized$Action, prediction = (probability > 
-    0.5)) %>% addmargins()
-library(pROC)
-ROCprob <- plot.roc(randomized$Action ~ probability)
+table(truth = movies$Action, prediction = as.numeric(probability > 
+    0.5)) %>% addmargins
+
+
+ROCprob <- plot.roc(movies$Action ~ probability)
 
 ```
 
@@ -209,8 +201,8 @@ ROCprob <- plot.roc(randomized$Action ~ probability)
 # cross-validation of np classifier here
 set.seed(1234)
 k = 10  
-data <- randomized[sample(nrow(randomized)), ]  
-folds_num <- cut(seq(1:nrow(randomized)), breaks = k, labels = F)   
+data <- randomized[sample(nrow(movies)), ]  
+folds_num <- cut(seq(1:nrow(movies)), breaks = k, labels = F)   
 
 diags <- NULL
 for (i in 1:k) {
@@ -220,7 +212,7 @@ for (i in 1:k) {
     
     
     fit <- knn3(Action ~ length + budget + rating + 
-        votes, data = randomized)
+        votes, data = movies)
     probability <- predict(fit, newdata = test)[, 2]
     
    
@@ -229,8 +221,8 @@ for (i in 1:k) {
 
 summarize_all(diags, mean)
 ```
+The non - parametric classification that was used was the K - nearest neighbor technique in order to predict if the movie reviewed was of the action genre or not based on the length, budget, rating, and votes for the movie. This classification yielded even more poor results than the linear classification done prior as the AUC value fell to 0.5112, which is an significant decrease from the AUC value of 0.72068, as it is now not a passing value. This means the in- sample assessment without the influence of set conditions such as mean, standard deviation, variance, etc. of this classification yielded a worse prediction of the outcome of the binary variable, Action, based on length, budget, rating, and votes. This poor outcome is adequately demonstrated in the ROC plot as the curve aligns with the the 45 degree angle of the plane much more than the previous ROC plot, indicating very low accuracy of this classification. To further validate this notion, a cross validation was performed, and the AUC value increased dramatically to .87005, which overall concludes that this non-parametric model did a poor job at predicting the effects of the action movie genre predictor. However, because of this increase of the AUC value in the cross-validation, this could be a sign of overfitting. 
 
-Discussion
 
 
 ### Regression/Numeric Prediction
@@ -260,7 +252,7 @@ mean(diags)
 
 ```
 
-Discussion
+The linear regression shown above is used based soley on numerical variables of interest, which were the the rating IMDB users gave the movie, the length of the movie in minutes, and the budget of the movie in USD. The predictor variable was 'rating' in order to predict what IMBD users rated a given movie, from the length and budget of the movie (the response variables). The mean square error was calculated and came out to 2.389, meaning the error was low and that the estimate for the prediction of ratings from the length and budget of the movie are close to the actual case for ratings in relation to these two variables. This low MSE value indicates a the model is a good fit for the actual data, however to further validate this, a 5- fold cross validation for the linear regression model was performed. The MSE from the cross validation was only a hundreth of a point higher, indicating hardly any increase in error at all. This small increased was most likely introduced to the randomization of the the sample, and the model itself could still be considered a good fit, with a strong prediction. 
 
 ### Python 
 
