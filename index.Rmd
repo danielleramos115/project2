@@ -74,11 +74,11 @@ head(movies)
 library(cluster)
 num_dat <- select(movies, (3:6))
 
-sil_width<-vector() #empty vector to hold mean sil width
+sil_width<-vector() 
 for(i in 2:10){  
-  kms <- kmeans(num_dat,centers=i) #compute k-means solution for each k
-  sil <- silhouette(kms$cluster,dist(num_dat)) #get sil widths
-  sil_width[i]<-mean(sil[,3]) #take averages (higher is better)
+  kms <- kmeans(num_dat,centers=i) 
+  sil <- silhouette(kms$cluster,dist(num_dat)) 
+  sil_width[i]<-mean(sil[,3])
 }
 ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
 
@@ -88,7 +88,6 @@ pam1 <- num_dat %>% pam(k=2) #use the pam function
 pam1
 pamclust<-num_dat %>% mutate(cluster=as.factor(pam1$clustering))
 pamclust %>% group_by(cluster) %>% summarize_if(is.numeric, mean, na.rm = TRUE)
-# movies %>% slice(pam1$title.med)
 library(GGally)
 ggpairs(pamclust, columns=1:4, aes(color=cluster))
 
@@ -179,11 +178,10 @@ for (i in 1:k) {
 
 summarize_all(diags,mean)
 ```
-
-
     - Perform k-fold CV on this same model (fine to use caret). Run the `class_diag` function or equivalent to get out-of-sample performance averaged across your k folds and discuss how well is your model predicting new observations per CV AUC.
     
     - Discuss the results in a paragraph. How well is your model predicting new observations per CV AUC? Do you see signs of overfitting?
+
 
 
 
@@ -239,26 +237,23 @@ Discussion
 
 ```{R}
 # regression model code here
-fit <- lm(rating ~ length + budget, data = randomized)  #predict mpg from all other variables
-yhat <- predict(fit)  #predicted mpg
+fit <- lm(rating ~ length + budget, data = randomized)  
+yhat <- predict(fit)  
 mean((randomized$rating - yhat)^2)
 
 ```
 
 ```{R}
 set.seed(1234)
-k = 5  #choose number of folds
-data <- randomized[sample(nrow(randomized)), ]  #randomly order rows
+k = 5  
+data <- randomized[sample(nrow(randomized)), ]  
 folds <- cut(seq(1:nrow(randomized)), breaks = k, labels = F)  #create folds
 diags <- NULL
 for (i in 1:k) {
     train <- data[folds != i, ]
     test <- data[folds == i, ]
-    ## Fit linear regression model to training set
     fit <- lm(rating ~ length + budget, data = randomized)
-    ## Get predictions/y-hats on test set (fold i)
     yhat <- predict(fit, newdata = test)
-    ## Compute prediction error (MSE) for fold i
     diags <- mean((randomized$rating - yhat)^2)
 }
 mean(diags)
@@ -287,7 +282,7 @@ The python code above what integrated in to R using the 'reticulate' package whi
 
 ### Concluding Remarks
 
-This project allowed me to access a data set I have been wanting to explore since before I began project 1, because I really enjoy how much can be done with movie rating data, as an opinionated movie watcher like myself.While the coding delve in to concepts that, at first I struggled with, I was able to enjoy it and understand it more with this data set, particularly because of its usability with binary variables in relation to the topics in this project. In the future, I would like to further explore the use of R in conjunction with python and play with this interaction between the two and gather more sufisticated findings. 
+This project allowed me to access a data set I have been wanting to explore since before I began project 1, because I really enjoy how much can be done with movie rating data, as an opinionated movie watcher like myself.While the coding delve in to concepts that, at first I struggled with, I was able to enjoy it and understand it more with this data set, particularly because of its usability with binary variables in relation to the topics in this project. In the future, I would like to further explore the use of R in conjunction with python and play with this interaction between the two and gather more sophisticated findings. 
 
 
 
