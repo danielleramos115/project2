@@ -1,8 +1,10 @@
 ---
 title: 'Project 2: Data Mining and Prediction'
-author: "SDS322E"
+author: 'Danielle Ramos UTEID: dcr2325'
 date: ''
 output:
+  pdf_document:
+    toc: yes
   html_document:
     toc: yes
     toc_float:

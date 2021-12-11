@@ -1,6 +1,6 @@
 ---
 title: 'Project 2: Data Mining, Classification, Prediction'
-author: "SDS322E"
+author: "SDS332E"
 date: ''
 output:
   html_document:
@@ -46,60 +46,190 @@ class_diag <- function(score, truth, positive, cutoff=.5){
 
 # Mining, Classification, Prediction
 
-## Name and EID here
+## Danielle Ramos UTEID: dcr2325
 
 ### Introduction 
+This project explores several methods of dsta mining, classification, and predictions using the "movies" dataset from the ggplot2movies built in R package. This dataset was developed from the movie database website http://imdb.com/, which is a frequently viewed website for movie fanatics like myself. This dataframe contains the 'year' the film was released, the 'budget' as the cost of the film production is USD, the 'length' of the movie in minutes, 'rating' average IMDB users, the 'number' of IMDB users who rated the movie,the 'percentage' (to the nearest 10%) of a 1 out of 10 rating, and the 'mpaa' variable that is the MPAA rating (PG, PG-13, R, etc.), and lastly an abundance of binary variables for the classification of the movie genre for 28,819 movies! Given that there are many binary variables in this data set, I specifically chose to explore the "Action" movie genre as the binary variable for classifications and predictions throughout the project. The "Action" genre specifically interested me based on the preconceived notion of action movies typically costing the most to make of all the other genres, the fact that from my experience they are also long films in length, and have franchise attachments which comes with a fan base (ie. Fast and Furious, The Avengers, Taken, Batman/ Dark Night, etc.) which could introduce biases in who is voting and rating these movies. This binary variable is represented in a numerical fashion with 0,1, and was also mutated for the PCA portion as a categorical variable "TRUE/FALSE". 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc. See instructions for more information
+
+To prepare my data for initial mining, all of the NAs in my dataset were removed to provide greater clarity when clustering the data. The variables 'r1-10' were also removed from the datset, as those specific numerical variables were not informative for the what the goal of the predictions were, and created a wide data set overall. the 'movies' dataset is now ready for the cluster analysis. 
 
 ```{R}
 library(tidyverse)
-# read your datasets in here, e.g., with read_csv()
+library(ggplot2movies)
 
-# if your dataset needs tidying, do so here
+data(movies)
+movies = na.omit(movies)
+movies = movies %>% select(-7:-16)
+dim(movies)
+head(movies)
 
-# any other code here
+# removing all NA values and numeric values that hold no value to the project
+
 ```
 
 ### Cluster Analysis
 
 ```{R}
 library(cluster)
-# clustering code here
+num_dat <- select(movies, (3:6))
+
+sil_width<-vector() #empty vector to hold mean sil width
+for(i in 2:10){  
+  kms <- kmeans(num_dat,centers=i) #compute k-means solution for each k
+  sil <- silhouette(kms$cluster,dist(num_dat)) #get sil widths
+  sil_width[i]<-mean(sil[,3]) #take averages (higher is better)
+}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
+
+# k = 2!
+
+pam1 <- num_dat %>% pam(k=2) #use the pam function
+pam1
+pamclust<-num_dat %>% mutate(cluster=as.factor(pam1$clustering))
+pamclust %>% group_by(cluster) %>% summarize_if(is.numeric, mean, na.rm = TRUE)
+# movies %>% slice(pam1$title.med)
+library(GGally)
+ggpairs(pamclust, columns=1:4, aes(color=cluster))
+
+plot(pam1, which = 2)
+
+
 ```
 
-Discussion of clustering here
-    
+To initialize the cluster analysis, it was found that two clusters were ideal for this solution, as the silhouette width was calculate to make k=2. The two clusters were created using the pam function and the results yielded cluster 2 having the highest average values for 'length', 'budget', and 'votes', making the cluster 1 have the highest average value only for 'rating'.The cluster solution strength was determined by the average silhouette width, which came out to be 0.77, which is relatively strong, and substantial for the visualization of the clusters. According to the visualizations shown in the 'ggpairs' plot, the most similar cluster distributions are shown among the 'length' and 'rating' variables, as cluster 2 (blue) represents a normal distribution. Likewise, the cluster distributions for budget and votes are extremely similar in that while the second cluster reveals some normality, the mean values in the y axis are much less than the 'length' and 'rating' clusters. 
     
 ### Dimensionality Reduction with PCA
 
 ```{R}
-# PCA code here
+#making a PCA
+pca1 <- princomp(num_dat, cor=T)
+names(pca1)
+summary(pca1, loadings = T)
+
+# determining how many PCs are kept
+eigval<-pca1$sdev^2
+varprop=round(eigval/sum(eigval), 2)
+
+ggplot() + geom_bar(aes(y = varprop, x = 1:4), stat = "identity") + 
+    xlab("") + geom_path(aes(y = varprop, x = 1:4)) + geom_text(aes(x = 1:4, 
+    y = varprop, label = round(varprop, 2)), vjust = 1, col = "white", 
+    size = 5) + scale_y_continuous(breaks = seq(0, 0.6, 0.2), 
+    labels = scales::percent) + scale_x_continuous(breaks = 1:10)
+
+# PC1 & PC2 are kept, as PC3 equated to 88% which is greater than the 85% threshold
+round(cumsum(eigval)/sum(eigval),2)
+eigval
+
+num_dat_df <- data.frame(PC1 = pca1$scores[,1], PC2 = pca1$scores[,2])
+gg = ggplot(num_dat_df, aes(x = PC1, y = PC2)) + geom_point(size = 1) 
+print(gg)
+
+
+
+library(factoextra)
+movies <- movies %>% mutate('Action(T/F)' = ifelse(Action == 1, "TRUE", "FALSE"))
+fviz_pca_biplot(pca1, col.ind = movies$`Action(T/F)`)
+# PC1 &
 ```
 
-Discussions of PCA here. 
+The principal component analysis was run using the 'num_dat' data set containing the numerical variables length, budget, rating, and votes to further understand the correlations amongst each variable, while gaining in sight on the collective variability throughout the data by plotting a the PCA by PC1 and PC2. In order to determining how many PCs there should be, the 'eigval' was calculated, which yields the proportion of variance among the four components that were based on each of the variables in 'num_dat'.The eigvals for the first two components were greater than 1, favoring 2 PCs being used for the PCA. The first two components summed up to 71 percent for the cumulative proportion of variance, and the first 3 summed up to 88 percent, making the first two components best for the PCA plot. As shown in the plot, PC1 and PC2 collectively explain 71% of the variability across all the variables from 'num_dat', which are 'length', 'budget', 'rating', and 'votes'.
 
 ###  Linear Classifier
 
 ```{R}
-# linear classifier code here
+fit <- glm(Action ~ length + budget + rating + votes, data = movies, family = "binomial")
+
+summary(fit)
+score <- predict(fit, type = "response")
+score %>% round(3)
+
+class_diag(score, truth = movies$Action, positive = 1)
+summary(fit$fitted.values)
+
+
+probability <- predict(fit, type = "response")
+table(truth = movies$Action, prediction = as.numeric(probability>0.5))
+
+
 ```
 
 ```{R}
-# cross-validation of linear classifier here
+
+# cross validation 
+
+set.seed(1234)
+k = 10
+
+randomized <- movies[sample(nrow(movies)), ]
+folds <- cut(seq(1:nrow(movies)), breaks = k, labels = F)
+
+# trained model to data set 
+diags <- NULL
+for (i in 1:k) {
+  train = randomized[folds != i, ]
+  test = randomized[folds == i, ]
+  truth = test$Action
+  fit <- glm(Action ~ length + budget + rating + votes, data = movies, family = "binomial")
+
+  probs <- predict(fit, newdata = test, type = "response")
+  
+  diags <- rbind(diags, class_diag(probs, truth, positive = 1))
+}
+
+summarize_all(diags,mean)
 ```
 
-Discussion here
+
+    - Perform k-fold CV on this same model (fine to use caret). Run the `class_diag` function or equivalent to get out-of-sample performance averaged across your k folds and discuss how well is your model predicting new observations per CV AUC.
+    
+    - Discuss the results in a paragraph. How well is your model predicting new observations per CV AUC? Do you see signs of overfitting?
+
+
+
+
+
+
 
 ### Non-Parametric Classifier
 
 ```{R}
 library(caret)
-# non-parametric classifier code here
+fit<- knn3(Action~length+budget+rating+votes, data = randomized)
+probs <- predict(fit, newdata = randomized)[, 2]
+class_diag(probs, randomized$Action, positive = "1")
+
+table(truth = randomized$Action, predictions = probs > 0.5)
+table(truth = randomized$Action, prediction = (probability > 
+    0.5)) %>% addmargins()
+library(pROC)
+ROCprob <- plot.roc(randomized$Action ~ probability)
+
 ```
 
 ```{R}
 # cross-validation of np classifier here
+set.seed(1234)
+k = 10  
+data <- randomized[sample(nrow(randomized)), ]  
+folds_num <- cut(seq(1:nrow(randomized)), breaks = k, labels = F)   
+
+diags <- NULL
+for (i in 1:k) {
+    train <- data[folds_num != i, ]
+    test <- data[folds_num == i, ]
+    truth <- test$Action
+    
+    
+    fit <- knn3(Action ~ length + budget + rating + 
+        votes, data = randomized)
+    probability <- predict(fit, newdata = test)[, 2]
+    
+   
+    diags <- rbind(diags, class_diag(probability, truth, positive = 1))
+}
+
+summarize_all(diags, mean)
 ```
 
 Discussion
@@ -109,30 +239,55 @@ Discussion
 
 ```{R}
 # regression model code here
+fit <- lm(rating ~ length + budget, data = randomized)  #predict mpg from all other variables
+yhat <- predict(fit)  #predicted mpg
+mean((randomized$rating - yhat)^2)
+
 ```
 
 ```{R}
-# cross-validation of regression model here
+set.seed(1234)
+k = 5  #choose number of folds
+data <- randomized[sample(nrow(randomized)), ]  #randomly order rows
+folds <- cut(seq(1:nrow(randomized)), breaks = k, labels = F)  #create folds
+diags <- NULL
+for (i in 1:k) {
+    train <- data[folds != i, ]
+    test <- data[folds == i, ]
+    ## Fit linear regression model to training set
+    fit <- lm(rating ~ length + budget, data = randomized)
+    ## Get predictions/y-hats on test set (fold i)
+    yhat <- predict(fit, newdata = test)
+    ## Compute prediction error (MSE) for fold i
+    diags <- mean((randomized$rating - yhat)^2)
+}
+mean(diags)
+
 ```
 
 Discussion
 
 ### Python 
 
-```{R}
+```{r}
 library(reticulate)
+use_python("/usr/bin/python3", required = F)
+who <- "Danielle Ramos"
 ```
+
 
 ```{python}
-# python code here
+who = r.who
+finals = "is done with finals!"
+print(r.who,finals)
+
 ```
 
-Discussion
+The python code above what integrated in to R using the 'reticulate' package which essentially allows for python and r to interact using syntax that favors python. In this simple example shown above, I created a string named "who" that contains my name, which is  the subject of the sentence I created. The next chunk of code allows for the r-defined "who" string to be accessed in python. Now that this is accessed, I added the predicate of my sentence in a separate frame through python, and using the "print" statement, was able to combine the two strings to form the sentence "Danielle Ramos is done with finals!" because after I submit this, I will be!
 
 ### Concluding Remarks
 
-Include concluding remarks here, if any
-
+This project allowed me to access a data set I have been wanting to explore since before I began project 1, because I really enjoy how much can be done with movie rating data, as an opinionated movie watcher like myself.While the coding delve in to concepts that, at first I struggled with, I was able to enjoy it and understand it more with this data set, particularly because of its usability with binary variables in relation to the topics in this project. In the future, I would like to further explore the use of R in conjunction with python and play with this interaction between the two and gather more sufisticated findings. 
 
 
 
